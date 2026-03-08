@@ -195,7 +195,7 @@ function getCachedWrite(remotePath) {
 
 **Why**: The extension registers `FileSystemProvider` instances, which normally works on the workspace side. On the UI (local) side, this requires the `resolvers` proposed API -- an unstable VS Code API that must be explicitly enabled.
 
-**Fix**: Add `"enabledApiProposals": ["resolvers"]` to `package.json` and launch VS Code with `--enable-proposed-api Anthropic.claude-code-local`. Also wrap the registration calls in try-catch when force-local is active.
+**Fix**: Add `"enabledApiProposals": ["resolvers"]` to `package.json` and launch VS Code with `--enable-proposed-api justimyhxu.claude-code-local`. Also wrap the registration calls in try-catch when force-local is active.
 
 **Lesson**: VS Code's extension host has fundamentally different capabilities on the UI side vs. the workspace side. The official docs barely mention this.
 

@@ -14,5 +14,15 @@ test/
 /tmp/vsix-build/
 *.vsix
 
+# Update script cache
+.update-cache/
+
+# Native binaries (extracted at build time, not stored in git)
+resources/native-binaries/
+resources/native-binary/
+
+# Node modules
+node_modules/
+
 # Editor
 .vscode/

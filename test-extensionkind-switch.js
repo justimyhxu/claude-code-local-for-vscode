@@ -18,7 +18,7 @@ const path = require("path");
 const os = require("os");
 
 // --- Test config ---
-const EXTENSION_DIR = path.join(os.homedir(), ".vscode", "extensions", "anthropic.claude-code-local-2.1.42");
+const EXTENSION_DIR = path.join(os.homedir(), ".vscode", "extensions", "justimyhxu.claude-code-local-2.1.42");
 const PKG_PATH = path.join(EXTENSION_DIR, "package.json");
 
 function readExtensionKind() {
@@ -123,7 +123,7 @@ function test_fileReadWrite() {
     if (fs.existsSync(extJsonPath)) {
         const extJson = JSON.parse(fs.readFileSync(extJsonPath, "utf8"));
         const ourEntry = extJson.find(e =>
-            e.identifier && e.identifier.id === "anthropic.claude-code-local"
+            e.identifier && e.identifier.id === "justimyhxu.claude-code-local"
         );
         if (ourEntry) {
             const hasKindCache = Object.keys(ourEntry).some(k => k.toLowerCase().includes("kind"));

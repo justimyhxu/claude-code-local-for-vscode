@@ -1,13 +1,9 @@
 {
 	"name": "claude-code-local",
-	"displayName": "Claude Code Local",
-	"extensionKind": [
-		"ui",
-		"workspace"
-	],
+	"displayName": "Claude Code Local for VS Code",
 	"description": "Claude Code for VS Code: Harness the power of Claude Code without leaving your IDE",
-	"version": "2.1.42",
-	"publisher": "Anthropic",
+	"version": "2.1.71",
+	"publisher": "justimyhxu",
 	"license": "© Anthropic PBC. All rights reserved. Use is subject to the Legal Agreements outlined here: https://code.claude.com/docs/en/legal-and-compliance.",
 	"bugs": {
 		"url": "https://github.com/anthropics/claude-code/issues",
@@ -153,7 +149,9 @@
 				},
 				"claudeCode.sshExtraArgs": {
 					"type": "array",
-					"items": { "type": "string" },
+					"items": {
+						"type": "string"
+					},
 					"default": [],
 					"description": "Extra arguments to pass to the SSH command (e.g. [\"-p\", \"2222\"] for non-standard port)."
 				},
@@ -164,7 +162,10 @@
 				},
 				"claudeCode.forceLocalDiffMode": {
 					"type": "string",
-					"enum": ["auto", "review"],
+					"enum": [
+						"auto",
+						"review"
+					],
 					"default": "auto",
 					"markdownDescription": "How file edits are handled in force-local mode.\n- **auto**: Edits apply immediately, inline diff in chat (fast).\n- **review**: Opens VS Code diff tab before writing; you can edit the code and Accept/Reject (safe)."
 				}
@@ -193,6 +194,14 @@
 			{
 				"command": "claude-vscode.editor.openLast",
 				"title": "Claude Code: Open",
+				"icon": {
+					"light": "resources/claude-logo.svg",
+					"dark": "resources/claude-logo.svg"
+				}
+			},
+			{
+				"command": "claude-vscode.primaryEditor.open",
+				"title": "Claude Code: Open in Primary Editor",
 				"icon": {
 					"light": "resources/claude-logo.svg",
 					"dark": "resources/claude-logo.svg"
@@ -346,6 +355,12 @@
 					"title": "Claude Code",
 					"icon": "resources/claude-logo.svg",
 					"when": "claude-code:doesNotSupportSecondarySidebar"
+				},
+				{
+					"id": "claude-sessions-sidebar",
+					"title": "Claude Code",
+					"icon": "resources/claude-logo.svg",
+					"when": "claude-vscode.sessionsListEnabled"
 				}
 			],
 			"secondarySidebar": [
@@ -373,6 +388,14 @@
 					"name": "Claude Code",
 					"when": "!claude-code:doesNotSupportSecondarySidebar"
 				}
+			],
+			"claude-sessions-sidebar": [
+				{
+					"type": "webview",
+					"id": "claudeVSCodeSessionsList",
+					"name": "",
+					"when": "claude-vscode.sessionsListEnabled"
+				}
 			]
 		},
 		"walkthroughs": [
@@ -392,7 +415,7 @@
 					{
 						"id": "open-claude",
 						"title": "Open Claude Code",
-						"description": "Click the orange Claude icon in the top right corner, or press Ctrl+Escape (Cmd+Escape on Mac) to start a conversation.",
+						"description": "Click the blue Claude icon in the top right corner, or press Ctrl+Escape (Cmd+Escape on Mac) to start a conversation.",
 						"media": {
 							"markdown": "resources/walkthrough/step2.md"
 						},
@@ -463,6 +486,10 @@
 					"when": "false"
 				},
 				{
+					"command": "claude-vscode.primaryEditor.open",
+					"when": "claude-vscode.primaryEditorEnabled"
+				},
+				{
 					"command": "claude-vscode.blur",
 					"when": "false"
 				},
@@ -493,11 +520,10 @@
 	},
 	"scripts": {},
 	"dependencies": {},
-	"__metadata": {
-		"installedTimestamp": 1771014927402,
-		"targetPlatform": "darwin-arm64",
-		"size": 230294357
-	},
+	"extensionKind": [
+		"ui",
+		"workspace"
+	],
 	"enabledApiProposals": [
 		"resolvers"
 	]

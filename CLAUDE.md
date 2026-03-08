@@ -10,7 +10,7 @@ export https_proxy=http://127.0.0.1:7890 http_proxy=http://127.0.0.1:7890 all_pr
 
 ## Project Goal
 
-Patch the official Claude Code VS Code extension (v2.1.42) to support **two working modes**
+Patch the official Claude Code VS Code extension (v2.1.71) to support **two working modes**
 via a single extension, controlled by the `claudeCode.forceLocal` setting:
 
 | Mode | Setting | Where Extension Runs | Where CLI Runs | Use Case |
@@ -73,7 +73,7 @@ The Linux x64 CLI binary is used via the existing `wD6()` multi-platform lookup.
 | File | Role | Status |
 |------|------|--------|
 | `package.json` | Extension manifest, settings, extensionKind | Modified |
-| `extension.js` | Main extension (74k lines, minified then beautified) | 15 surgical patches |
+| `extension.js` | Main extension (74k lines, minified then beautified) | 21 surgical patches (13 patch files) |
 | `src/remote-tools.js` | 6 MCP tools for remote file proxy | NEW file, ~587 lines |
 | `webview/index.js` | Webview React UI (minified) | Unchanged |
 | `webview/index.css` | Webview styles (minified) | Unchanged |
@@ -84,17 +84,17 @@ The Linux x64 CLI binary is used via the existing `wD6()` multi-platform lookup.
 ## package.json Changes
 
 - `name`: `claude-code` -> `claude-code-local`
-- `displayName`: `Claude Code` -> `Claude Code Local`
+- `displayName`: `Claude Code` -> `Claude Code Local for VS Code`
 - `extensionKind`: `["ui", "workspace"]` (allows running on UI/local side)
 - `enabledApiProposals`: `["resolvers"]` (required for UI-side FileSystemProvider)
 - Settings: `claudeCode.forceLocal`, `claudeCode.sshHost`, `claudeCode.sshIdentityFile`,
   `claudeCode.sshExtraArgs`, `claudeCode.useSSHExec`, `claudeCode.forceLocalDiffMode`
 
-## extension.js Patches (15 total)
+## extension.js Patches (16 patches, 21 sub-patches)
 
 All patches operate on the beautified minified code. Key variable names:
 - `z6, WJ, g9, L6, M0` = various `vscode` module aliases
-- `s` = zod schema library
+- `e` = zod schema library (module-level `var e = {}` with lazy exports; was `s` in v2.1.42)
 - `j` = MCP server instance (in `Ri()` and `launchClaude()`)
 - `q` = CLI spawn options
 - `YF` = McpServer class (WebSocket server)
@@ -117,7 +117,7 @@ adds `q.allowedTools` conditionally based on `forceLocalDiffMode`:
   allowedTools -> CLI asks permission before calling them
 
 ### Patch 4: `Ri()` MCP tool registration (~line 73585)
-Calls `require("./src/remote-tools").registerTools(j, s, V)` on WebSocket server.
+Calls `require("./src/remote-tools").registerTools(j, e, V)` on WebSocket server.
 
 ### Patch 5: Lock file `yF()` (~line 73043)
 Uses `getForceLocalCwd()` instead of workspace folder fsPath in forceLocal mode.
@@ -133,8 +133,9 @@ official extension (failures propagate normally).
 
 ### Patch 8: `launchClaude()` in-process MCP tool registration (~line 49583)
 Registers remote tools on the in-process "claude-vscode" MCP server (`j.instance`)
-that the SDK-spawned CLI actually uses. Also passes `fileUpdatedCallback` to send
-`file_updated` messages to the webview when files are modified.
+that the SDK-spawned CLI actually uses. Uses module-level zod variable `e` (not a local
+variable — `detectVars` no longer includes zodVar since `e` is module-level). Also passes
+`fileUpdatedCallback` to send `file_updated` messages to the webview when files are modified.
 
 Creates `_reviewEdit` async callback that gates edit/write in review mode.
 Sends `tool_permission_request` to the webview, which triggers the permission dialog
@@ -279,6 +280,12 @@ Two variables are injected into the webview: `FORCE_LOCAL_MODE` (from `isForceLo
 and `IS_REMOTE_ENV` (detected from `remoteAuthority`, `remoteName`, workspace folder
 scheme). The badge is only rendered when `IS_REMOTE_ENV` is true. A `MutationObserver`
 watches the DOM and re-injects the badge when the webview re-renders.
+
+### Patch 16: `openFile()` — remote file open (~line 73332)
+In forceLocal mode, clicking a file link in the webview calls `openFile(z, v)` which
+uses `Uri.file(localPath)` + `existsSync()`. Files are on the remote server, so this
+silently fails. Fix: adds a forceLocal early-return branch that uses `getRemoteUri()`
+to open the file via VS Code's remote FS, with searchText and line range positioning.
 
 ## src/remote-tools.js — Architecture
 
@@ -433,6 +440,16 @@ The `_adaptMcpEvent()` helper converts MCP events to native-format events:
     - Fix: Removed all four references (spawnClaude, terminal mode node-pty path,
       terminal mode Python fallback path, terminal mode early start).
 
+13. **MCP tools fail with `s.string is not a function` after v2.1.71 upgrade**
+    - Root cause: Patch 08 hardcoded `s` as the zod schema variable. In v2.1.71,
+      minification renamed zod from `s` to module-level `e` (`var e = {}` at line 46028).
+    - Fix: Changed Patch 08 to use hardcoded `e` instead of detecting zod locally
+      (module-level vars can't be detected via local context in detectVars).
+
+14. **File links in webview chat don't open in forceLocal mode**
+    - Root cause: `openFile()` uses `existsSync()` + `Uri.file()` — both fail for remote files.
+    - Fix: Added Patch 16 with forceLocal early-return using `getRemoteUri()`.
+
 ## Progress
 
 ### Phase 1: Core Infrastructure [COMPLETE]
@@ -444,7 +461,7 @@ The `_adaptMcpEvent()` helper converts MCP events to native-format events:
 - [x] Webview/panel cwd resolution (Patch 6)
 - [x] FileSystemProvider try-catch for resolvers API (Patch 7)
 - [x] VSIX packaging with proper format
-- [x] `--enable-proposed-api Anthropic.claude-code-local` launch flag
+- [x] `--enable-proposed-api justimyhxu.claude-code-local` launch flag
 
 ### Phase 2: MCP Tool Implementation [COMPLETE]
 - [x] `src/remote-tools.js` — 6 MCP tools created
@@ -486,6 +503,12 @@ The `_adaptMcpEvent()` helper converts MCP events to native-format events:
 - [x] 1.4 edit_file: String replacement works
 - [x] 1.6 grep: Works with rg->grep fallback (grep -rn on servers without rg)
 - [x] 1.7 bash: Commands execute on remote
+
+### Phase 6: Automated Testing [COMPLETE]
+- [x] `tests/test-patches.js` — 134 tests covering all 13 patch files
+- [x] Patcher unit tests, detectVars validation, syntax checks
+- [x] Cross-patch consistency, zod variable correctness
+- [x] Pipeline dry-run, installed extension validation
 
 ## Resolved: Edit/Diff Flow (Rewrite v2)
 
@@ -562,6 +585,7 @@ tab natively (blocks until Accept/Reject). `openDiff()` always calls `RY()` — 
 | 2.6 | Accept button (review) | Clicking Accept writes file (including user modifications) | RETEST |
 | 2.7 | Reject button (review) | Clicking Reject prevents write | RETEST |
 | 2.8 | Tab close (review) | Closing diff tab without Accept/Reject = reject | RETEST |
+| 2.9 | File link clicking | Opens remote file in editor | PASS |
 
 ### Diagnostics Tests
 | # | Test | Expected | Status |
@@ -654,7 +678,7 @@ it resolves to `resources/native-binaries/darwin-arm64/claude`.
 ### Local Mode (forceLocal ON)
 1. Set `claudeCode.forceLocal: true` in VS Code workspace settings
 2. Open a Remote SSH workspace to a server **without internet**
-3. Launch VS Code with `--enable-proposed-api Anthropic.claude-code-local`
+3. Launch VS Code with `--enable-proposed-api justimyhxu.claude-code-local`
 4. Claude Code runs locally, proxying file ops to remote via MCP tools
 
 ### Remote Mode (forceLocal OFF)

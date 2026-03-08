@@ -1,8 +1,10 @@
+**English** | [中文](README.zh-CN.md)
+
 # Claude Code VS Code -- Dual Mode (Local + Remote)
 
 > One extension, two modes: run Claude Code **locally** for no-internet servers, or **remotely** just like the official extension -- controlled by a single setting.
 
-**Base version**: Claude Code VS Code Extension v2.1.42 (Anthropic)
+**Base version**: Claude Code VS Code Extension v2.1.71 (Anthropic)
 **Platforms**: macOS ARM64 + Linux x86-64 (dual binary)
 **Status**: Functional -- all core tools verified
 
@@ -51,7 +53,7 @@ LOCAL MACHINE                             REMOTE SERVER (has internet + files)
 Everything runs on the remote server -- identical to official Claude Code.
 ```
 
-- The extension behaves **100% identically** to the official Claude Code extension. All 15 patches are gated by `isForceLocalMode()` and have zero effect.
+- The extension behaves **100% identically** to the official Claude Code extension. All 21 patches are gated by `isForceLocalMode()` and have zero effect.
 - The Linux x64 CLI binary is bundled and auto-selected.
 - Set `forceLocal: false` (or leave as default) in **Workspace** settings.
 
@@ -96,6 +98,7 @@ The badge helps you quickly verify where the extension is actually running.
 - [Diff Modes](#diff-modes)
 - [Design Philosophy](#design-philosophy)
 - [Known Limitations](#known-limitations)
+- [FAQ](#faq)
 - [License](#license)
 
 ---
@@ -161,7 +164,7 @@ PreToolUse/PostToolUse hooks detect new IDE errors after edits and inject `<ide_
 | **macOS ARM64 or Linux x64** | Dual platform binaries bundled. Local machine must be macOS ARM64 for Local Mode. |
 | **Claude Code account** | An Anthropic API key or Claude Pro/Max/Team/Enterprise subscription |
 | **Remote - SSH extension** | Microsoft's [Remote - SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh) extension |
-| **Proposed API flag** | VS Code must enable `--enable-proposed-api Anthropic.claude-code-local` (see Installation) |
+| **Proposed API flag** | VS Code must enable `--enable-proposed-api justimyhxu.claude-code-local` (see Installation) |
 
 ## Installation
 
@@ -177,7 +180,39 @@ cd ~/code/claude-code-vscode
 git lfs pull
 ```
 
-### Step 2: Build the VSIX Package
+### Step 2: Install Dependencies
+
+```bash
+npm install
+```
+
+This installs `js-beautify` and `adm-zip`, used by the auto-update script.
+
+### Step 3: Build and Install
+
+**Option A: Auto-update from official release (recommended)**
+
+Downloads the latest official VSIX, beautifies the code, applies all patches automatically, and builds a new VSIX:
+
+```bash
+# Build + install in one step
+npm run update -- --install
+
+# Or specify a version
+npm run update -- --version 2.1.70 --install
+```
+
+Other useful flags:
+
+```bash
+npm run update -- --dry-run          # Verify all patch anchors match, don't modify
+npm run update -- --skip-download    # Use previously downloaded cache
+npm run update -- --output ~/my.vsix # Custom output path
+```
+
+**Option B: Rebuild from repo files (for local code changes)**
+
+If you've modified `src/remote-tools.js` or other repo files and just need to repackage:
 
 ```bash
 # Create staging directory
@@ -204,11 +239,8 @@ XMLEOF
 
 # Build the VSIX
 cd /tmp/vsix-build && zip -r /tmp/claude-code-local.vsix .
-```
 
-### Step 3: Install the Extension
-
-```bash
+# Install
 code --install-extension /tmp/claude-code-local.vsix --force
 ```
 
@@ -223,7 +255,7 @@ code --install-extension /tmp/claude-code-local.vsix --force
 ```jsonc
 {
     // ... existing keys ...
-    "enable-proposed-api": ["Anthropic.claude-code-local"]
+    "enable-proposed-api": ["justimyhxu.claude-code-local"]
 }
 ```
 
@@ -232,13 +264,13 @@ code --install-extension /tmp/claude-code-local.vsix --force
 **Method B: Command line flag (per-launch)**
 
 ```bash
-code --enable-proposed-api Anthropic.claude-code-local
+code --enable-proposed-api justimyhxu.claude-code-local
 ```
 
 Or add to `~/.zshrc`:
 
 ```bash
-alias code='code --enable-proposed-api Anthropic.claude-code-local'
+alias code='code --enable-proposed-api justimyhxu.claude-code-local'
 ```
 
 ## Configuration
@@ -355,7 +387,7 @@ VS Code Remote SSH maintains an authenticated, multiplexed SSH connection. `vsco
 
 ### Why Monkey-Patch?
 
-The extension ships as a single minified file. This project applies **15 surgical patches** at specific function boundaries. The only wholly new code is `src/remote-tools.js` (~587 lines).
+The extension ships as a single minified file. This project applies **21 surgical patches (13 patch files)** at specific function boundaries. The only wholly new code is `src/remote-tools.js` (~587 lines).
 
 ## Known Limitations
 
@@ -365,7 +397,7 @@ The extension ships as a single minified file. This project applies **15 surgica
 | **Linux x64 remote only** | Remote Mode uses a Linux x86-64 binary. ARM64 Linux servers not yet supported. |
 | **Glob line numbers wrap at 100** | Cosmetic issue in the original webview -- not introduced by this patch. |
 | **API 403 telemetry errors** | CLI telemetry events get 403 errors (different extension ID). Non-functional. |
-| **Extension version locked** | Based on v2.1.42. Updates require re-applying 14 patches. |
+| **Extension version locked** | Based on v2.1.71. Use `npm run update` to auto-apply patches to newer versions. |
 | **Reload required for mode switch** | Changing `forceLocal` requires a VS Code reload because `extensionKind` is a static manifest property. |
 
 ## File Structure
@@ -373,9 +405,24 @@ The extension ships as a single minified file. This project applies **15 surgica
 ```
 claude-code-vscode/
 |-- package.json                    # Extension manifest (modified)
-|-- extension.js                    # Main extension (15 surgical patches)
+|-- extension.js                    # Main extension (21 surgical patches)
 |-- src/
 |   '-- remote-tools.js            # 6 MCP proxy tools (NEW, ~587 lines)
+|-- scripts/
+|   |-- update.js                   # Auto-update entry point
+|   |-- .beautifyrc.json            # js-beautify config
+|   |-- lib/
+|   |   |-- download.js             # VSIX download + extract
+|   |   |-- beautify.js             # js-beautify wrapper
+|   |   |-- patcher.js              # Core patching engine
+|   |   |-- package-patcher.js      # package.json modifications
+|   |   '-- vsix-builder.js         # VSIX packaging
+|   '-- patches/
+|       |-- index.js                # Patch registry + execution order
+|       '-- patch-*.js              # 13 patch definition files (21 patches total)
+|-- tests/
+|   |-- test-patches.js             # 134 automated tests for all patches
+|   '-- test-vscode-interactive.md  # Manual VS Code integration test plan
 |-- webview/
 |   |-- index.js                    # Webview React UI (unchanged)
 |   '-- index.css                   # Webview styles (unchanged)
@@ -389,6 +436,85 @@ claude-code-vscode/
 '-- README.md                       # This file
 ```
 
+## FAQ
+
+### Why does the extension bundle its own CLI binary instead of using my installed Claude?
+
+The CLI binary must match the extension version exactly -- the internal protocol between extension and CLI is version-locked. Using a different CLI version (e.g., one installed via `npm` or Homebrew) would cause protocol mismatches and silent failures. This is the same approach the official Claude Code extension uses.
+
+If you want to save disk space, you can replace the binary with a symlink to your system Claude, but **only if the versions match exactly**:
+
+```bash
+# Only if your installed claude matches v2.1.71
+ln -sf $(which claude) resources/native-binaries/darwin-arm64/claude
+```
+
+### I get `spawn ENOEXEC` when launching Claude Code
+
+The CLI binary is stored with Git LFS. If you cloned without LFS, the binary file is a 134-byte text pointer instead of the actual executable. Fix:
+
+```bash
+git lfs install
+git lfs pull
+```
+
+Then rebuild and reinstall the VSIX.
+
+### Why do I need `--enable-proposed-api`?
+
+In Local Mode, the extension runs on the UI side (your Mac) but needs to access remote files. VS Code's `resolvers` proposed API enables the FileSystemProvider registration needed for this. Without it, file operations may fail silently. This flag is not needed in Remote Mode.
+
+### Can I use this with a Linux or Windows local machine?
+
+Currently, Local Mode only supports **macOS ARM64** as the local machine (the bundled CLI is a Mach-O ARM64 binary). Remote Mode works on any platform since the Linux x64 CLI runs on the remote server.
+
+### Does this work with VS Code forks (Cursor, Windsurf, etc.)?
+
+It may work but is untested. The extension uses VS Code APIs extensively, so compatibility depends on how faithfully the fork implements those APIs. The `--enable-proposed-api` flag may not be available in all forks.
+
+### How do I update when a new Claude Code version is released?
+
+Use the auto-update script which downloads the latest official VSIX, applies all patches, and rebuilds:
+
+```bash
+node scripts/update.js --install
+```
+
+This handles version bumps, code minification changes, and patch anchor adjustments automatically.
+
+### The extension shows "extensionKind mismatch" and keeps asking to reload
+
+This happens when you switch `forceLocal` and the extension needs to change where it runs. Click **Reload** once. If it persists, check that you're setting `forceLocal` at the **Workspace** scope (not User scope), as User-scope settings apply globally and can cause conflicts across different projects.
+
+### File edits fail with "old_string not found" in Local Mode
+
+This usually means the write cache is stale or there's a race condition. Try:
+1. Save all open files in VS Code before editing
+2. If the issue persists, the remote file may have been modified outside VS Code -- re-read the file first
+
+## Changelog
+
+### v0.3.0 (2026-03)
+- **Upgraded base** from Claude Code v2.1.42 to v2.1.71
+- **Auto-update pipeline**: `node scripts/update.js` downloads official VSIX, beautifies code, applies all 13 patch files (21 sub-patches) automatically, and builds installable VSIX
+- **134 automated tests**: `tests/test-patches.js` covers patcher logic, detectVars validation, syntax checks, and cross-patch consistency
+- **Fixed zod variable bug**: Minification renamed zod from `s` to module-level `e` in v2.1.71. Patch 08 updated accordingly
+- **Patch 16 -- remote file open**: Clicking file links in webview chat now correctly opens remote files in forceLocal mode via `getRemoteUri()`
+- **Custom theme**: Extension icons and UI rebranded from Claude orange to emerald green (`#10B981`) to visually distinguish from the official extension
+- **Bilingual README**: Split into `README.md` (English) and `README.zh-CN.md` (Chinese) with language toggle links
+- **FAQ section**: Added common questions and troubleshooting guide
+- **Patch count**: 20 -> 21 sub-patches across 13 patch definition files
+
+### v2.1.71 Upgrade (2025-03)
+- **Upgraded base** from Claude Code v2.1.42 to v2.1.71
+- **Fixed zod variable bug**: Minification renamed zod from `s` to module-level `e`.
+  Patch 08 now uses hardcoded `e` for MCP tool registration.
+- **Added Patch 16**: `openFile()` remote file open -- clicking file links in webview
+  chat now correctly opens remote files in forceLocal mode.
+- **Added test suite**: `tests/test-patches.js` with 134 automated tests covering
+  all patches (patcher logic, detectVars, syntax, cross-patch consistency).
+- **Patch count**: 20 -> 21 sub-patches across 13 patch definition files.
+
 ## License
 
 This project is a **patch** of Anthropic's official Claude Code VS Code extension. The original extension is proprietary software owned by Anthropic PBC. This patch is intended for **personal use only** and is not affiliated with, endorsed by, or supported by Anthropic.
@@ -397,287 +523,3 @@ The original extension's license applies:
 > Anthropic PBC. All rights reserved. Use is subject to the Legal Agreements outlined at https://code.claude.com/docs/en/legal-and-compliance.
 
 The new code in `src/remote-tools.js` and the patch modifications are provided as-is for educational and personal use.
-
----
----
-
-# Claude Code VS Code -- 双模式（本地 + 远程）
-
-> 一个扩展，两种模式：为无网络的服务器**本地运行** Claude Code，或为有网络的服务器**远程运行**——与官方扩展完全一致——由一个设置控制。
-
-**基础版本**: Claude Code VS Code Extension v2.1.42 (Anthropic)
-**平台**: macOS ARM64 + Linux x86-64（双平台二进制）
-**状态**: 功能正常 -- 所有核心工具已验证通过
-
----
-
-## 两种工作模式
-
-本扩展通过 `claudeCode.forceLocal` 设置支持**本地**和**远程**两种执行模式：
-
-| 模式 | `forceLocal` | 扩展运行位置 | CLI 运行位置 | 适用场景 |
-|------|-------------|------------|------------|---------|
-| **本地模式** | `true` | 你的 Mac（本地） | 你的 Mac（本地） | 远程服务器**没有互联网** |
-| **远程模式** | `false` | 远程服务器 | 远程服务器（Linux） | 远程服务器**有互联网** — 与官方扩展一致 |
-
-### 本地模式（`forceLocal: true`）
-
-```
-本地机器（有互联网）                       远程服务器（无互联网，有文件）
-+-----------------------------+           +--------------------------+
-|  VS Code UI                 |           |  远程文件系统             |
-|  扩展宿主（本地运行）         |           |  /home/user/project/     |
-|    |-- CLI（macOS 二进制）   |           |                          |
-|    |-- 6 个 MCP 代理工具 ----|--vscode-->|  读取、写入、编辑等       |
-|    '-- 隐藏终端 ------------|--vscode-->|  bash、grep（通过终端）   |
-+-----------------------------+           +--------------------------+
-
-CLI 使用本地网络调用 Anthropic API。
-文件操作通过 VS Code 的 SSH 连接代理到远程。
-```
-
-- CLI 的 8 个内置文件工具被**禁用**。6 个替代 MCP 工具通过 VS Code 远程文件系统 API 代理操作到远程。
-- 远程服务器无需安装任何额外软件。
-- 在**工作区**设置中设置 `forceLocal: true`。
-
-### 远程模式（`forceLocal: false`）
-
-```
-本地机器                                   远程服务器（有互联网 + 有文件）
-+-----------------------------+           +--------------------------+
-|  VS Code UI（瘦客户端）      |<--------->|  VS Code Server          |
-|                             |           |  扩展宿主（远程运行）     |
-|                             |           |    |-- CLI（Linux 二进制） |
-|                             |           |    '-- 标准工具          |
-+-----------------------------+           +--------------------------+
-
-一切在远程服务器上运行 — 与官方 Claude Code 完全一致。
-```
-
-- 扩展行为与官方 Claude Code 扩展 **100% 一致**。所有 14 个补丁都通过 `isForceLocalMode()` 守卫，在此模式下零影响。
-- Linux x64 CLI 二进制已打包并自动选择。
-- 在**工作区**设置中设置 `forceLocal: false`（或保持默认）。
-
-### 模式切换原理
-
-扩展动态管理 `package.json` 中的 `extensionKind`：
-
-| 环境 | `forceLocal` | `extensionKind` | 效果 |
-|---|---|---|---|
-| **本地工作区** | 任意 | `["ui", "workspace"]` | 始终本地运行 — 无需切换 |
-| **远程** | `true` | `["ui", "workspace"]` | VS Code 在**本地/UI 侧**运行扩展 |
-| **远程** | `false` | `["workspace", "ui"]` | VS Code 将扩展部署到**远程服务器** |
-
-在**远程**环境中修改 `forceLocal` 时，扩展更新 `extensionKind` 并提示 VS Code **Reload**。Reload 后，VS Code 读取新的 `extensionKind` 并在正确的位置运行扩展。
-
-对于**本地工作区**（无远程连接），`extensionKind` 始终为 `["ui", "workspace"]`，不受 `forceLocal` 设置影响——无需切换或 Reload。
-
-**重要**：在**工作区**级别（`Cmd+,` -> 工作区 标签页）设置 `forceLocal`，这样每个项目可以独立控制自己的模式。
-
-### 模式标识徽章
-
-在远程环境中，Claude Code 面板标题栏的"New session"按钮旁会显示一个小徽章：
-
-| 徽章 | 含义 |
-|------|------|
-| **UI** | 远程 + forceLocal ON — 扩展在**本地**运行，文件操作代理到远程 |
-| **Workspace** | 远程 + forceLocal OFF — 扩展在**远程服务器**运行 |
-| *（无徽章）* | 本地工作区 — 无需模式标识 |
-
-徽章帮助你快速确认扩展的实际运行位置。
-
----
-
-## 功能特性
-
-### 多平台 CLI 二进制
-
-VSIX 包含两个平台的 CLI 二进制文件：
-
-```
-resources/native-binaries/
-  darwin-arm64/claude    （175MB，macOS ARM64）
-  linux-x64/claude       （213MB，Linux x86-64）
-```
-
-官方的 `wD6()` 二进制查找函数根据 `process.platform` 和 `process.arch` 自动选择正确的二进制。
-
-### 6 个 MCP 代理工具（仅本地模式）
-
-| 工具 | VS Code API | 说明 |
-|------|------------|------|
-| `read_file` | `vscode.workspace.fs.readFile()` | 从远程服务器读取文件 |
-| `write_file` | `vscode.workspace.fs.writeFile()` | 在远程服务器上写入文件 |
-| `edit_file` | 读取 + 替换 + 写入 | 远程文件查找替换编辑 |
-| `glob` | `vscode.workspace.findFiles()` | 远程文件模式匹配搜索 |
-| `grep` | 隐藏终端 + `rg`/`grep` | 远程文件内容搜索 |
-| `bash` | 隐藏终端 + `bash -c` | 远程命令执行 |
-
-### 自动 / 审查差异模式（仅本地模式）
-
-- **auto**（默认）：编辑自动批准并立即应用。聊天中显示内联差异。
-- **review**：每次编辑前打开 VS Code 差异标签页，可在接受前修改内容。
-
-## 前置要求
-
-| 要求 | 详情 |
-|------|------|
-| **VS Code** | 版本 1.99 或更高 |
-| **macOS ARM64 或 Linux x64** | 已打包双平台二进制。本地模式要求 macOS ARM64。 |
-| **Claude Code 账户** | Anthropic API 密钥或 Claude Pro/Max/Team/Enterprise 订阅 |
-| **Remote - SSH 扩展** | Microsoft 的 [Remote - SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh) |
-| **Proposed API 标志** | VS Code 需启用 `--enable-proposed-api Anthropic.claude-code-local` |
-
-## 安装步骤
-
-> **安装注意事项：**
-> 1. **VS Code 版本**：需要较新版本的 VS Code（1.99+，2025 年 4 月或之后发布）。旧版本（如 2024 年 10 月的版本）无法加载本扩展。
-> 2. **需要 Git LFS**：CLI 二进制文件（约 175MB + 213MB）使用 [Git LFS](https://git-lfs.github.com/) 存储。克隆后必须安装 Git LFS 并执行 `git lfs pull`，否则二进制文件只是几 KB 的 LFS 指针文件，无法正常运行。
-
-### 第一步：克隆仓库
-
-```bash
-git clone <仓库地址> ~/code/claude-code-vscode
-cd ~/code/claude-code-vscode
-git lfs pull
-```
-
-### 第二步：构建 VSIX 包
-
-```bash
-rm -rf /tmp/vsix-build
-mkdir -p /tmp/vsix-build/extension/{src,webview,resources}
-
-cp package.json extension.js CLAUDE.md /tmp/vsix-build/extension/
-cp src/remote-tools.js /tmp/vsix-build/extension/src/
-cp -r webview/* /tmp/vsix-build/extension/webview/
-cp -r resources/* /tmp/vsix-build/extension/resources/
-
-cat > /tmp/vsix-build/'[Content_Types].xml' << 'XMLEOF'
-<?xml version="1.0" encoding="utf-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension=".json" ContentType="application/json"/>
-  <Default Extension=".js" ContentType="application/javascript"/>
-  <Default Extension=".css" ContentType="text/css"/>
-  <Default Extension=".png" ContentType="image/png"/>
-  <Default Extension=".vsixmanifest" ContentType="text/xml"/>
-</Types>
-XMLEOF
-
-cd /tmp/vsix-build && zip -r /tmp/claude-code-local.vsix .
-```
-
-### 第三步：安装扩展
-
-```bash
-code --install-extension /tmp/claude-code-local.vsix --force
-```
-
-### 第四步：启用 Proposed API 标志
-
-**方法 A：修改 `argv.json`（推荐 — 永久生效）**
-
-`Cmd+Shift+P` -> "Configure Runtime Arguments"，在 `~/.vscode/argv.json` 中添加：
-
-```jsonc
-{
-    "enable-proposed-api": ["Anthropic.claude-code-local"]
-}
-```
-
-**方法 B：命令行标志**
-
-```bash
-code --enable-proposed-api Anthropic.claude-code-local
-```
-
-## 配置说明
-
-在**工作区**级别设置，让每个项目独立控制模式。
-
-### 核心设置
-
-#### `claudeCode.forceLocal`（布尔值，默认：`false`）
-
-**模式开关。**
-
-| 值 | 行为 |
-|---|------|
-| `true` | **本地模式**：扩展 + CLI 在本地运行，文件操作通过 MCP 工具代理到远程。适用于**无网络**的服务器。 |
-| `false` | **远程模式**：扩展 + CLI 在远程运行，与官方扩展一致。适用于**有网络**的服务器。 |
-
-修改后扩展自动更新 `extensionKind` 并提示 Reload。请在**工作区**级别设置，让不同项目使用不同模式。
-
-#### `claudeCode.forceLocalDiffMode`（字符串，默认：`"auto"`）
-
-控制文件编辑展示方式（仅本地模式）：
-
-| 模式 | 行为 |
-|------|------|
-| `"auto"` | 编辑自动批准并立即应用。聊天中显示内联差异。 |
-| `"review"` | 写入前打开差异标签页，可修改后接受或拒绝。 |
-
-### 示例：按工作区配置
-
-```jsonc
-// 无网络服务器项目的 .vscode/settings.json
-{
-    "claudeCode.forceLocal": true
-}
-```
-
-```jsonc
-// 有网络服务器项目的 .vscode/settings.json
-{
-    "claudeCode.forceLocal": false
-}
-```
-
-## 使用方法
-
-### 场景 1：远程服务器无互联网
-
-1. 通过 VS Code Remote SSH 连接远程服务器
-2. 在**工作区**设置中启用 `claudeCode.forceLocal: true`
-3. 如提示，点击 **Reload**
-4. Claude Code 在本地运行，文件操作代理到远程
-5. 日志显示：`forceLocal: CLI will run locally`
-
-### 场景 2：远程服务器有互联网
-
-1. 通过 VS Code Remote SSH 连接远程服务器
-2. 确保**工作区**设置中 `claudeCode.forceLocal: false`（默认值）
-3. 如提示，点击 **Reload**
-4. VS Code 自动将扩展（含 Linux CLI）部署到远程
-5. Claude Code 在远程运行 — 与官方扩展完全一致
-
-### 场景 3：本地工作区
-
-无需特殊配置，正常使用即可。
-
-## 文件结构
-
-```
-claude-code-vscode/
-|-- package.json                    # 扩展清单（已修改）
-|-- extension.js                    # 主扩展代码（14 个外科手术式补丁）
-|-- src/
-|   '-- remote-tools.js            # 6 个 MCP 代理工具（新文件，约 587 行）
-|-- webview/
-|   |-- index.js                    # Webview React UI（未修改）
-|   '-- index.css                   # Webview 样式（未修改）
-|-- resources/
-|   |-- native-binaries/
-|   |   |-- darwin-arm64/claude     # macOS ARM64 CLI（175MB）
-|   |   '-- linux-x64/claude        # Linux x86-64 CLI（213MB）
-|   |-- native-binary/claude        # 回退 CLI（macOS ARM64）
-|   '-- claude-logo.png
-|-- CLAUDE.md                       # 详细开发文档
-'-- README.md                       # 本文件
-```
-
-## 许可声明
-
-本项目是对 Anthropic 官方 Claude Code VS Code 扩展的**补丁**。原始扩展是 Anthropic PBC 拥有的专有软件。本补丁仅供**个人使用**，与 Anthropic 无关联、未经其认可或支持。
-
-`src/remote-tools.js` 中的新代码和补丁修改按原样提供，仅供教育和个人使用。
