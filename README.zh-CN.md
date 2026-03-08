@@ -10,7 +10,49 @@
 
 ---
 
-## 两种工作模式
+## 目录
+
+1. [快速开始](#1-快速开始)
+2. [两种工作模式](#2-两种工作模式)
+3. [安装步骤](#3-安装步骤)
+4. [配置说明](#4-配置说明)
+5. [使用方法](#5-使用方法)
+6. [功能特性](#6-功能特性)
+7. [已知限制](#7-已知限制)
+8. [常见问题](#8-常见问题)
+9. [设计理念](#9-设计理念)
+10. [文件结构](#10-文件结构)
+11. [更新日志](#11-更新日志)
+12. [许可声明](#12-许可声明)
+
+---
+
+## 1. 快速开始
+
+```bash
+# 1. 克隆仓库并拉取二进制文件
+git clone <仓库地址> ~/code/claude-code-vscode
+cd ~/code/claude-code-vscode
+git lfs pull
+
+# 2. 安装依赖 + 构建 + 安装 VSIX
+npm install
+npm run update -- --install
+
+# 3. 启用 Proposed API（一次性设置）
+#    Cmd+Shift+P -> "Configure Runtime Arguments" -> 在 ~/.vscode/argv.json 中添加：
+#    { "enable-proposed-api": ["justimyhxu.claude-code-local"] }
+
+# 4. 在工作区设置中选择模式（Cmd+, -> 工作区 标签页）
+#    claudeCode.forceLocal: true   （无网络服务器）
+#    claudeCode.forceLocal: false  （服务器有网络，默认值）
+```
+
+详细步骤和故障排除请参阅[安装步骤](#3-安装步骤)。
+
+---
+
+## 2. 两种工作模式
 
 本扩展通过 `claudeCode.forceLocal` 设置支持**本地**和**远程**两种执行模式：
 
@@ -19,7 +61,7 @@
 | **本地模式** | `true` | 你的 Mac（本地） | 你的 Mac（本地） | 远程服务器**没有互联网** |
 | **远程模式** | `false` | 远程服务器 | 远程服务器（Linux） | 远程服务器**有互联网** — 与官方扩展一致 |
 
-### 本地模式（`forceLocal: true`）
+### 2.1 本地模式（`forceLocal: true`）
 
 ```
 本地机器（有互联网）                       远程服务器（无互联网，有文件）
@@ -39,7 +81,7 @@ CLI 使用本地网络调用 Anthropic API。
 - 远程服务器无需安装任何额外软件。
 - 在**工作区**设置中设置 `forceLocal: true`。
 
-### 远程模式（`forceLocal: false`）
+### 2.2 远程模式（`forceLocal: false`）
 
 ```
 本地机器                                   远程服务器（有互联网 + 有文件）
@@ -57,7 +99,7 @@ CLI 使用本地网络调用 Anthropic API。
 - Linux x64 CLI 二进制已打包并自动选择。
 - 在**工作区**设置中设置 `forceLocal: false`（或保持默认）。
 
-### 模式切换原理
+### 2.3 模式切换原理
 
 扩展动态管理 `package.json` 中的 `extensionKind`：
 
@@ -73,7 +115,7 @@ CLI 使用本地网络调用 Anthropic API。
 
 **重要**：在**工作区**级别（`Cmd+,` -> 工作区 标签页）设置 `forceLocal`，这样每个项目可以独立控制自己的模式。
 
-### 模式标识徽章
+### 2.4 模式标识徽章
 
 在远程环境中，Claude Code 面板标题栏的"New session"按钮旁会显示一个小徽章：
 
@@ -87,47 +129,7 @@ CLI 使用本地网络调用 Anthropic API。
 
 ---
 
-## 功能特性
-
-### 多平台 CLI 二进制
-
-VSIX 包含两个平台的 CLI 二进制文件：
-
-```
-resources/native-binaries/
-  darwin-arm64/claude    （175MB，macOS ARM64）
-  linux-x64/claude       （213MB，Linux x86-64）
-```
-
-官方的 `wD6()` 二进制查找函数根据 `process.platform` 和 `process.arch` 自动选择正确的二进制。
-
-### 6 个 MCP 代理工具（仅本地模式）
-
-| 工具 | VS Code API | 说明 |
-|------|------------|------|
-| `read_file` | `vscode.workspace.fs.readFile()` | 从远程服务器读取文件 |
-| `write_file` | `vscode.workspace.fs.writeFile()` | 在远程服务器上写入文件 |
-| `edit_file` | 读取 + 替换 + 写入 | 远程文件查找替换编辑 |
-| `glob` | `vscode.workspace.findFiles()` | 远程文件模式匹配搜索 |
-| `grep` | 隐藏终端 + `rg`/`grep` | 远程文件内容搜索 |
-| `bash` | 隐藏终端 + `bash -c` | 远程命令执行 |
-
-### 自动 / 审查差异模式（仅本地模式）
-
-- **auto**（默认）：编辑自动批准并立即应用。聊天中显示内联差异。
-- **review**：每次编辑前打开 VS Code 差异标签页，可在接受前修改内容。
-
-## 前置要求
-
-| 要求 | 详情 |
-|------|------|
-| **VS Code** | 版本 1.99 或更高 |
-| **macOS ARM64 或 Linux x64** | 已打包双平台二进制。本地模式要求 macOS ARM64。 |
-| **Claude Code 账户** | Anthropic API 密钥或 Claude Pro/Max/Team/Enterprise 订阅 |
-| **Remote - SSH 扩展** | Microsoft 的 [Remote - SSH](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh) |
-| **Proposed API 标志** | VS Code 需启用 `--enable-proposed-api justimyhxu.claude-code-local` |
-
-## 安装步骤
+## 3. 安装步骤
 
 > **安装注意事项：**
 > 1. **VS Code 版本**：需要较新版本的 VS Code（1.99+，2025 年 4 月或之后发布）。旧版本（如 2024 年 10 月的版本）无法加载本扩展。
@@ -217,11 +219,13 @@ code --install-extension /tmp/claude-code-local.vsix --force
 code --enable-proposed-api justimyhxu.claude-code-local
 ```
 
-## 配置说明
+---
+
+## 4. 配置说明
 
 在**工作区**级别设置，让每个项目独立控制模式。
 
-### 核心设置
+### 4.1 核心设置
 
 #### `claudeCode.forceLocal`（布尔值，默认：`false`）
 
@@ -234,21 +238,48 @@ code --enable-proposed-api justimyhxu.claude-code-local
 
 修改后扩展自动更新 `extensionKind` 并提示 Reload。请在**工作区**级别设置，让不同项目使用不同模式。
 
-#### `claudeCode.forceLocalDiffMode`（字符串，默认：`"auto"`）
+### 4.2 SSH 设置（可选，仅本地模式）
 
-控制文件编辑展示方式（仅本地模式）：
+| 设置 | 类型 | 默认值 | 说明 |
+|------|-----|--------|------|
+| `claudeCode.sshHost` | `string` | `""` | SSH 主机覆盖。留空则自动检测。 |
+| `claudeCode.useSSHExec` | `boolean` | `false` | 使用直接 SSH 而非 VS Code 终端。 |
+| `claudeCode.sshIdentityFile` | `string` | `""` | SSH 私钥路径（`useSSHExec` 为 true 时）。 |
+| `claudeCode.sshExtraArgs` | `string[]` | `[]` | 额外 SSH 参数（`useSSHExec` 为 true 时）。 |
 
-| 模式 | 行为 |
-|------|------|
-| `"auto"` | 编辑自动批准并立即应用。聊天中显示内联差异。 |
-| `"review"` | 写入前打开差异标签页，可修改后接受或拒绝。 |
+### 4.3 差异模式
 
-### 示例：按工作区配置
+通过 `claudeCode.forceLocalDiffMode`（默认：`"auto"`）控制文件编辑展示方式（仅本地模式）：
+
+#### 自动模式（默认）
+
+```jsonc
+"claudeCode.forceLocalDiffMode": "auto"
+```
+
+- 所有 MCP 工具自动批准 — 无权限提示。
+- 编辑立即应用。聊天中显示内联差异（红/绿高亮）。
+- 适合：快速迭代、有经验的用户。
+
+#### 审查模式
+
+```jsonc
+"claudeCode.forceLocalDiffMode": "review"
+```
+
+- `edit_file` 和 `write_file` 写入前打开差异标签页。
+- 可在右侧编辑器中修改建议内容。
+- 点击 **Accept** 写入，**Reject** 或关闭标签页取消。
+- 权限模式为 `bypassPermissions` 或 `acceptEdits` 时自动跳过。
+- 适合：仔细审查、生产代码库。
+
+### 4.4 示例：按工作区配置
 
 ```jsonc
 // 无网络服务器项目的 .vscode/settings.json
 {
-    "claudeCode.forceLocal": true
+    "claudeCode.forceLocal": true,
+    "claudeCode.forceLocalDiffMode": "auto"
 }
 ```
 
@@ -259,7 +290,9 @@ code --enable-proposed-api justimyhxu.claude-code-local
 }
 ```
 
-## 使用方法
+---
+
+## 5. 使用方法
 
 ### 场景 1：远程服务器无互联网
 
@@ -281,43 +314,72 @@ code --enable-proposed-api justimyhxu.claude-code-local
 
 无需特殊配置，正常使用即可。
 
-## 文件结构
+---
+
+## 6. 功能特性
+
+### 6.1 多平台 CLI 二进制
+
+VSIX 包含两个平台的 CLI 二进制文件：
 
 ```
-claude-code-vscode/
-|-- package.json                    # 扩展清单（已修改）
-|-- extension.js                    # 主扩展代码（21 个外科手术式补丁）
-|-- src/
-|   '-- remote-tools.js            # 6 个 MCP 代理工具（新文件，约 587 行）
-|-- scripts/
-|   |-- update.js                   # 自动更新入口
-|   |-- .beautifyrc.json            # js-beautify 配置
-|   |-- lib/
-|   |   |-- download.js             # VSIX 下载 + 解压
-|   |   |-- beautify.js             # js-beautify 封装
-|   |   |-- patcher.js              # 核心 patching 引擎
-|   |   |-- package-patcher.js      # package.json 修改
-|   |   '-- vsix-builder.js         # VSIX 打包
-|   '-- patches/
-|       |-- index.js                # patch 注册表 + 执行顺序
-|       '-- patch-*.js              # 13 个 patch 定义文件（共 21 个 patch）
-|-- tests/
-|   |-- test-patches.js             # 134 个自动化测试，覆盖所有 patch
-|   '-- test-vscode-interactive.md  # 手动 VS Code 集成测试计划
-|-- webview/
-|   |-- index.js                    # Webview React UI（未修改）
-|   '-- index.css                   # Webview 样式（未修改）
-|-- resources/
-|   |-- native-binaries/
-|   |   |-- darwin-arm64/claude     # macOS ARM64 CLI（175MB）
-|   |   '-- linux-x64/claude        # Linux x86-64 CLI（213MB）
-|   |-- native-binary/claude        # 回退 CLI（macOS ARM64）
-|   '-- claude-logo.png
-|-- CLAUDE.md                       # 详细开发文档
-'-- README.md                       # 本文件
+resources/native-binaries/
+  darwin-arm64/claude    （175MB，macOS ARM64）
+  linux-x64/claude       （213MB，Linux x86-64）
 ```
 
-## 常见问题
+官方的 `wD6()` 二进制查找函数根据 `process.platform` 和 `process.arch` 自动选择正确的二进制。
+
+### 6.2 MCP 代理工具（仅本地模式）
+
+| 工具 | VS Code API | 说明 |
+|------|------------|------|
+| `read_file` | `vscode.workspace.fs.readFile()` | 从远程服务器读取文件 |
+| `write_file` | `vscode.workspace.fs.writeFile()` | 在远程服务器上写入文件 |
+| `edit_file` | 读取 + 替换 + 写入 | 远程文件查找替换编辑 |
+| `glob` | `vscode.workspace.findFiles()` | 远程文件模式匹配搜索 |
+| `grep` | 隐藏终端 + `rg`/`grep` | 远程文件内容搜索 |
+| `bash` | 隐藏终端 + `bash -c` | 远程命令执行 |
+
+### 6.3 写入缓存
+
+10 秒 TTL 缓存防止写入后立即从 `vscode.workspace.fs` 读取到过期内容。
+
+### 6.4 grep 回退
+
+`grep` 工具优先使用 `rg`（ripgrep）。如果远程服务器未安装，自动回退到 `grep -rn`。
+
+### 6.5 终端模式与 node-pty
+
+启用 `claudeCode.useTerminal` 时，CLI 在 VS Code 终端中运行，由 **node-pty** 提供 PTY 支持，具备 24 位色彩和正确的窗口调整。
+
+### 6.6 Webview UI 一致性
+
+MCP 工具名称透明转换为内置名称：
+- `mcp__claude-vscode__read_file` 显示为 `Read filename`
+- `mcp__claude-vscode__edit_file` 显示为 `Edit filename`（含内联差异）
+- `mcp__claude-vscode__bash` 使用标准 bash IN/OUT 格式显示
+
+### 6.7 IDE 诊断集成
+
+PreToolUse/PostToolUse 钩子在编辑后检测新的 IDE 错误，并向 Claude 注入 `<ide_diagnostics>` 反馈。
+
+---
+
+## 7. 已知限制
+
+| 限制 | 详情 |
+|------|------|
+| **仅支持 macOS ARM64 本地** | 本地模式要求 macOS ARM64。本地 CLI 二进制为 Mach-O ARM64。 |
+| **仅支持 Linux x64 远程** | 远程模式使用 Linux x86-64 二进制。暂不支持 ARM64 Linux 服务器。 |
+| **Glob 行号在 100 处换行** | 原始 webview 的外观问题 — 非本补丁引入。 |
+| **API 403 遥测错误** | CLI 遥测事件返回 403 错误（不同的扩展 ID）。不影响功能。 |
+| **扩展版本锁定** | 基于 v2.1.71。使用 `npm run update` 自动将补丁应用到新版本。 |
+| **模式切换需要重新加载** | 修改 `forceLocal` 需要 VS Code 重新加载，因为 `extensionKind` 是静态清单属性。 |
+
+---
+
+## 8. 常见问题
 
 ### 为什么扩展要自带 CLI 二进制文件，而不用我已安装的 Claude？
 
@@ -373,7 +435,67 @@ node scripts/update.js --install
 1. 编辑前先保存 VS Code 中所有打开的文件
 2. 如果问题持续，可能是远程文件在 VS Code 外被修改——先重新读取文件
 
-## 更新日志
+---
+
+## 9. 设计理念
+
+### 为什么将两种模式合并到一个扩展中？
+
+官方 Claude Code 扩展仅在远程服务器有互联网时才能使用。许多用户的服务器位于防火墙之后（企业、HPC、实验室环境）。与其维护两个独立扩展，不如通过 `forceLocal` 开关在本地和远程执行之间动态切换 `extensionKind`。
+
+### 为什么用 MCP 工具而不是修改 CLI？
+
+CLI 是原生二进制文件。MCP（模型上下文协议）是其官方扩展机制。通过 MCP 注册替代工具，我们**顺应** CLI 的架构设计。
+
+### 为什么通过 VS Code API 代理？
+
+VS Code Remote SSH 维护着经过认证的多路复用 SSH 连接。`vscode.workspace.fs` 通过此连接透明地处理远程文件操作。无需额外的 SSH 管理。
+
+### 为什么用猴子补丁？
+
+扩展以单个压缩文件发布。本项目在特定函数边界应用 **21 个外科手术式补丁（13 个 patch 文件）**。唯一全新的代码是 `src/remote-tools.js`（约 587 行）。
+
+---
+
+## 10. 文件结构
+
+```
+claude-code-vscode/
+|-- package.json                    # 扩展清单（已修改）
+|-- extension.js                    # 主扩展代码（21 个外科手术式补丁）
+|-- src/
+|   '-- remote-tools.js            # 6 个 MCP 代理工具（新文件，约 587 行）
+|-- scripts/
+|   |-- update.js                   # 自动更新入口
+|   |-- .beautifyrc.json            # js-beautify 配置
+|   |-- lib/
+|   |   |-- download.js             # VSIX 下载 + 解压
+|   |   |-- beautify.js             # js-beautify 封装
+|   |   |-- patcher.js              # 核心 patching 引擎
+|   |   |-- package-patcher.js      # package.json 修改
+|   |   '-- vsix-builder.js         # VSIX 打包
+|   '-- patches/
+|       |-- index.js                # patch 注册表 + 执行顺序
+|       '-- patch-*.js              # 13 个 patch 定义文件（共 21 个 patch）
+|-- tests/
+|   |-- test-patches.js             # 134 个自动化测试，覆盖所有 patch
+|   '-- test-vscode-interactive.md  # 手动 VS Code 集成测试计划
+|-- webview/
+|   |-- index.js                    # Webview React UI（未修改）
+|   '-- index.css                   # Webview 样式（未修改）
+|-- resources/
+|   |-- native-binaries/
+|   |   |-- darwin-arm64/claude     # macOS ARM64 CLI（175MB）
+|   |   '-- linux-x64/claude        # Linux x86-64 CLI（213MB）
+|   |-- native-binary/claude        # 回退 CLI（macOS ARM64）
+|   '-- claude-logo.png
+|-- CLAUDE.md                       # 详细开发文档
+'-- README.md                       # 本文件
+```
+
+---
+
+## 11. 更新日志
 
 ### v0.3.0（2026-03）
 - **基础版本升级**：从 Claude Code v2.1.42 升级到 v2.1.71
@@ -386,17 +508,9 @@ node scripts/update.js --install
 - **常见问题**：新增 FAQ 章节，涵盖常见问题与故障排除
 - **Patch 数量**：20 -> 21 个子 patch，分布在 13 个 patch 定义文件中
 
-### v2.1.71 升级（2025-03）
-- **基础版本升级**：从 Claude Code v2.1.42 升级到 v2.1.71
-- **修复 zod 变量 bug**：代码压缩将 zod 从 `s` 重命名为模块级 `e`。
-  Patch 08 现使用硬编码的 `e` 进行 MCP 工具注册。
-- **新增 Patch 16**：`openFile()` 远程文件打开 -- 在 forceLocal 模式下点击 webview
-  聊天中的文件链接现在可以正确打开远程文件。
-- **新增测试套件**：`tests/test-patches.js` 包含 134 个自动化测试，覆盖所有 patch
-  （patcher 逻辑、detectVars 验证、语法检查、跨 patch 一致性）。
-- **Patch 数量**：20 -> 21 个子 patch，分布在 13 个 patch 定义文件中。
+---
 
-## 许可声明
+## 12. 许可声明
 
 本项目是对 Anthropic 官方 Claude Code VS Code 扩展的**补丁**。原始扩展是 Anthropic PBC 拥有的专有软件。本补丁仅供**个人使用**，与 Anthropic 无关联、未经其认可或支持。
 
