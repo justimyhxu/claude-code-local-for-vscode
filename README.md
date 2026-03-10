@@ -30,8 +30,8 @@
 ## 1. Quick Start
 
 ```bash
-# 1. Clone and pull binaries
-git clone <this-repo-url> ~/code/claude-code-vscode
+# 1. Clone (skip LFS auto-download to avoid hanging)
+GIT_LFS_SKIP_SMUDGE=1 git clone <this-repo-url> ~/code/claude-code-vscode
 cd ~/code/claude-code-vscode
 git lfs pull
 

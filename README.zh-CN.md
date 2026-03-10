@@ -30,8 +30,8 @@
 ## 1. 快速开始
 
 ```bash
-# 1. 克隆仓库并拉取二进制文件
-git clone <仓库地址> ~/code/claude-code-vscode
+# 1. 克隆仓库（跳过 LFS 自动下载，避免卡住）
+GIT_LFS_SKIP_SMUDGE=1 git clone <仓库地址> ~/code/claude-code-vscode
 cd ~/code/claude-code-vscode
 git lfs pull
 
@@ -138,7 +138,8 @@ CLI 使用本地网络调用 Anthropic API。
 ### 第一步：克隆仓库
 
 ```bash
-git clone <仓库地址> ~/code/claude-code-vscode
+# 跳过 LFS 自动下载，避免 clone 时卡住
+GIT_LFS_SKIP_SMUDGE=1 git clone <仓库地址> ~/code/claude-code-vscode
 cd ~/code/claude-code-vscode
 git lfs pull
 ```
