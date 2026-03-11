@@ -30,12 +30,11 @@
 ## 1. Quick Start
 
 ```bash
-# 1. Clone (skip LFS auto-download to avoid hanging)
-GIT_LFS_SKIP_SMUDGE=1 git clone <this-repo-url> ~/code/claude-code-vscode
+# 1. Clone
+git clone <this-repo-url> ~/code/claude-code-vscode
 cd ~/code/claude-code-vscode
-git lfs pull
 
-# 2. Install deps + build + install VSIX
+# 2. Install deps + download official VSIX + apply patches + build + install
 npm install
 npm run update -- --install
 
@@ -133,14 +132,13 @@ The badge helps you quickly verify where the extension is actually running.
 
 > **Important Notes:**
 > 1. **VS Code version**: Requires a recent version of VS Code (1.99+, released April 2025 or later). Older versions (e.g. from October 2024) will fail to load the extension.
-> 2. **Git LFS required**: The CLI binaries (~175MB + ~213MB) are stored with [Git LFS](https://git-lfs.github.com/). You must have Git LFS installed and run `git lfs pull` after cloning, otherwise the binary files will be small LFS pointer files instead of actual executables.
+> 2. **Internet required for build**: The `npm run update` script downloads the official Claude Code VSIX (~50MB) from the VS Code Marketplace. You need internet access during the build step.
 
 ### Step 1: Clone the Repository
 
 ```bash
 git clone <this-repo-url> ~/code/claude-code-vscode
 cd ~/code/claude-code-vscode
-git lfs pull
 ```
 
 ### Step 2: Install Dependencies
@@ -155,14 +153,14 @@ This installs `js-beautify` and `adm-zip`, used by the auto-update script.
 
 **Option A: Auto-update from official release (recommended)**
 
-Downloads the latest official VSIX, beautifies the code, applies all patches automatically, and builds a new VSIX:
+Downloads the pinned version (v2.1.71) of the official VSIX, extracts binaries and webview assets, beautifies the code, applies all patches automatically, and builds a new VSIX:
 
 ```bash
 # Build + install in one step
 npm run update -- --install
 
 # Or specify a version
-npm run update -- --version 2.1.70 --install
+npm run update -- --version 2.1.71 --install
 ```
 
 Other useful flags:
@@ -173,38 +171,12 @@ npm run update -- --skip-download    # Use previously downloaded cache
 npm run update -- --output ~/my.vsix # Custom output path
 ```
 
-**Option B: Rebuild from repo files (for local code changes)**
+**Option B: Rebuild from local changes**
 
-If you've modified `src/remote-tools.js` or other repo files and just need to repackage:
+If you've modified `src/remote-tools.js` or patch files and want to re-apply patches without re-downloading:
 
 ```bash
-# Create staging directory
-rm -rf /tmp/vsix-build
-mkdir -p /tmp/vsix-build/extension/{src,webview,resources}
-
-# Copy extension files
-cp package.json extension.js CLAUDE.md /tmp/vsix-build/extension/
-cp src/remote-tools.js /tmp/vsix-build/extension/src/
-cp -r webview/* /tmp/vsix-build/extension/webview/
-cp -r resources/* /tmp/vsix-build/extension/resources/
-
-# Create Content_Types manifest
-cat > /tmp/vsix-build/'[Content_Types].xml' << 'XMLEOF'
-<?xml version="1.0" encoding="utf-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension=".json" ContentType="application/json"/>
-  <Default Extension=".js" ContentType="application/javascript"/>
-  <Default Extension=".css" ContentType="text/css"/>
-  <Default Extension=".png" ContentType="image/png"/>
-  <Default Extension=".vsixmanifest" ContentType="text/xml"/>
-</Types>
-XMLEOF
-
-# Build the VSIX
-cd /tmp/vsix-build && zip -r /tmp/claude-code-local.vsix .
-
-# Install
-code --install-extension /tmp/claude-code-local.vsix --force
+npm run update -- --skip-download --install
 ```
 
 ### Step 4: Enable the Proposed API Flag
@@ -411,14 +383,13 @@ ln -sf $(which claude) resources/native-binaries/darwin-arm64/claude
 
 ### I get `spawn ENOEXEC` when launching Claude Code
 
-The CLI binary is stored with Git LFS. If you cloned without LFS, the binary file is a 134-byte text pointer instead of the actual executable. Fix:
+The CLI binary may not have been downloaded correctly. Run the build again:
 
 ```bash
-git lfs install
-git lfs pull
+npm run update -- --install
 ```
 
-Then rebuild and reinstall the VSIX.
+This re-downloads the official VSIX (which contains the CLI binaries) and rebuilds.
 
 ### Why do I need `--enable-proposed-api`?
 
@@ -434,13 +405,17 @@ It may work but is untested. The extension uses VS Code APIs extensively, so com
 
 ### How do I update when a new Claude Code version is released?
 
-Use the auto-update script which downloads the latest official VSIX, applies all patches, and rebuilds:
+The default `npm run update` downloads the **pinned** version (v2.1.71) that all patches are tested against. To try a newer version, pass `--version` explicitly:
 
 ```bash
+# Default: pinned v2.1.71 (patches guaranteed to apply)
 node scripts/update.js --install
+
+# Explicit newer version (patches may need updating)
+node scripts/update.js --version 2.1.71 --install
 ```
 
-This handles version bumps, code minification changes, and patch anchor adjustments automatically.
+If patches fail on a newer version, use `--dry-run` first to check which anchors need updating.
 
 ### The extension shows "extensionKind mismatch" and keeps asking to reload
 
@@ -479,7 +454,6 @@ The extension ships as a single minified file. This project applies **21 surgica
 ```
 claude-code-vscode/
 |-- package.json                    # Extension manifest (modified)
-|-- extension.js                    # Main extension (21 surgical patches)
 |-- src/
 |   '-- remote-tools.js            # 6 MCP proxy tools (NEW, ~587 lines)
 |-- scripts/
@@ -495,26 +469,20 @@ claude-code-vscode/
 |       |-- index.js                # Patch registry + execution order
 |       '-- patch-*.js              # 13 patch definition files (21 patches total)
 |-- tests/
-|   |-- test-patches.js             # 134 automated tests for all patches
-|   '-- test-vscode-interactive.md  # Manual VS Code integration test plan
-|-- webview/
-|   |-- index.js                    # Webview React UI (unchanged)
-|   '-- index.css                   # Webview styles (unchanged)
-|-- resources/
-|   |-- native-binaries/
-|   |   |-- darwin-arm64/claude     # macOS ARM64 CLI (175MB)
-|   |   '-- linux-x64/claude        # Linux x86-64 CLI (213MB)
-|   |-- native-binary/claude        # Fallback CLI (macOS ARM64)
-|   '-- claude-logo.png             # Extension icon
-|-- CLAUDE.md                       # Detailed development documentation
+|   '-- test-patches.js             # 134 automated tests for all patches
+|-- docs/
+|   '-- TECHNICAL_BLOG.md           # Technical deep-dive article
 '-- README.md                       # This file
+
+# Generated by `npm run update` (not in repo):
+# extension.js, webview/*, resources/*, claude-code-settings.schema.json
 ```
 
 ---
 
 ## 11. Changelog
 
-### v0.3.0 (2026-03)
+### v2.1.71 (2026-03)
 - **Upgraded base** from Claude Code v2.1.42 to v2.1.71
 - **Auto-update pipeline**: `node scripts/update.js` downloads official VSIX, beautifies code, applies all 13 patch files (21 sub-patches) automatically, and builds installable VSIX
 - **134 automated tests**: `tests/test-patches.js` covers patcher logic, detectVars validation, syntax checks, and cross-patch consistency

@@ -54,11 +54,12 @@ function parseArgs() {
 }
 
 function printUsage() {
+    const { DEFAULT_VERSION } = require('./lib/download');
     console.log(`
 Usage: node scripts/update.js [options]
 
 Options:
-  --version <ver>    Specify version (e.g., 2.1.70). Default: latest
+  --version <ver>    Specify version (e.g., 2.1.71). Default: ${DEFAULT_VERSION} (pinned)
   --dry-run          Only verify anchors, don't modify files
   --install          Install VSIX after building
   --skip-download    Skip download, use cached files
@@ -66,8 +67,8 @@ Options:
   -h, --help         Show this help
 
 Examples:
-  node scripts/update.js                          # Latest version
-  node scripts/update.js --version 2.1.70         # Specific version
+  node scripts/update.js                          # Pinned version (v${DEFAULT_VERSION})
+  node scripts/update.js --version 2.1.71         # Specific version
   node scripts/update.js --dry-run                # Verify anchors only
   node scripts/update.js --install                # Build + install
   node scripts/update.js --skip-download          # Use cached download

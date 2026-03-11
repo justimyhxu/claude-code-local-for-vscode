@@ -30,12 +30,11 @@
 ## 1. 快速开始
 
 ```bash
-# 1. 克隆仓库（跳过 LFS 自动下载，避免卡住）
-GIT_LFS_SKIP_SMUDGE=1 git clone <仓库地址> ~/code/claude-code-vscode
+# 1. 克隆仓库
+git clone <仓库地址> ~/code/claude-code-vscode
 cd ~/code/claude-code-vscode
-git lfs pull
 
-# 2. 安装依赖 + 构建 + 安装 VSIX
+# 2. 安装依赖 + 下载官方 VSIX + 应用补丁 + 构建 + 安装
 npm install
 npm run update -- --install
 
@@ -133,15 +132,13 @@ CLI 使用本地网络调用 Anthropic API。
 
 > **安装注意事项：**
 > 1. **VS Code 版本**：需要较新版本的 VS Code（1.99+，2025 年 4 月或之后发布）。旧版本（如 2024 年 10 月的版本）无法加载本扩展。
-> 2. **需要 Git LFS**：CLI 二进制文件（约 175MB + 213MB）使用 [Git LFS](https://git-lfs.github.com/) 存储。克隆后必须安装 Git LFS 并执行 `git lfs pull`，否则二进制文件只是几 KB 的 LFS 指针文件，无法正常运行。
+> 2. **构建时需要网络**：`npm run update` 脚本会从 VS Code 商店下载官方 Claude Code VSIX（约 50MB）。构建步骤需要网络访问。
 
 ### 第一步：克隆仓库
 
 ```bash
-# 跳过 LFS 自动下载，避免 clone 时卡住
-GIT_LFS_SKIP_SMUDGE=1 git clone <仓库地址> ~/code/claude-code-vscode
+git clone <仓库地址> ~/code/claude-code-vscode
 cd ~/code/claude-code-vscode
-git lfs pull
 ```
 
 ### 第二步：安装依赖
@@ -156,14 +153,14 @@ npm install
 
 **方式 A：自动从官方版本更新（推荐）**
 
-自动下载最新官方 VSIX，美化代码，应用所有 patch，打包并安装：
+自动下载固定版本（v2.1.71）的官方 VSIX，提取二进制和 webview 资源，美化代码，应用所有 patch，打包并安装：
 
 ```bash
 # 一步完成：构建 + 安装
 npm run update -- --install
 
 # 也可以指定版本
-npm run update -- --version 2.1.70 --install
+npm run update -- --version 2.1.71 --install
 ```
 
 其他常用参数：
@@ -174,32 +171,12 @@ npm run update -- --skip-download    # 跳过下载，使用上次缓存
 npm run update -- --output ~/my.vsix # 自定义输出路径
 ```
 
-**方式 B：从 repo 文件重新打包（修改了本地代码时用）**
+**方式 B：从本地修改重新构建**
 
-如果你改了 `src/remote-tools.js` 等 repo 文件，只需重新打包：
+如果你改了 `src/remote-tools.js` 或 patch 文件，想重新应用补丁而不重新下载：
 
 ```bash
-rm -rf /tmp/vsix-build
-mkdir -p /tmp/vsix-build/extension/{src,webview,resources}
-
-cp package.json extension.js CLAUDE.md /tmp/vsix-build/extension/
-cp src/remote-tools.js /tmp/vsix-build/extension/src/
-cp -r webview/* /tmp/vsix-build/extension/webview/
-cp -r resources/* /tmp/vsix-build/extension/resources/
-
-cat > /tmp/vsix-build/'[Content_Types].xml' << 'XMLEOF'
-<?xml version="1.0" encoding="utf-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension=".json" ContentType="application/json"/>
-  <Default Extension=".js" ContentType="application/javascript"/>
-  <Default Extension=".css" ContentType="text/css"/>
-  <Default Extension=".png" ContentType="image/png"/>
-  <Default Extension=".vsixmanifest" ContentType="text/xml"/>
-</Types>
-XMLEOF
-
-cd /tmp/vsix-build && zip -r /tmp/claude-code-local.vsix .
-code --install-extension /tmp/claude-code-local.vsix --force
+npm run update -- --skip-download --install
 ```
 
 ### 第四步：启用 Proposed API 标志
@@ -395,14 +372,13 @@ ln -sf $(which claude) resources/native-binaries/darwin-arm64/claude
 
 ### 启动 Claude Code 时报 `spawn ENOEXEC`
 
-CLI 二进制文件使用 Git LFS 存储。如果克隆时没有 LFS，二进制文件只是 134 字节的文本指针而非实际可执行文件。修复方法：
+CLI 二进制可能没有正确下载。重新构建即可：
 
 ```bash
-git lfs install
-git lfs pull
+npm run update -- --install
 ```
 
-然后重新构建并安装 VSIX。
+这会重新下载官方 VSIX（包含 CLI 二进制）并重新构建。
 
 ### 为什么需要 `--enable-proposed-api`？
 
@@ -418,13 +394,17 @@ git lfs pull
 
 ### 新版 Claude Code 发布后如何更新？
 
-使用自动更新脚本，它会下载最新官方 VSIX，应用所有补丁，并重新构建：
+默认的 `npm run update` 会下载**固定版本**（v2.1.71），所有补丁均基于此版本测试。要尝试更新的版本，请显式传入 `--version`：
 
 ```bash
+# 默认：固定版本 v2.1.71（补丁保证可应用）
 node scripts/update.js --install
+
+# 显式指定新版本（补丁可能需要更新）
+node scripts/update.js --version 2.1.71 --install
 ```
 
-自动处理版本变更、代码压缩变化和补丁锚点调整。
+如果补丁在新版本上失败，可先用 `--dry-run` 检查哪些锚点需要更新。
 
 ### 扩展一直提示 "extensionKind mismatch" 要求重新加载
 
@@ -463,7 +443,6 @@ VS Code Remote SSH 维护着经过认证的多路复用 SSH 连接。`vscode.wor
 ```
 claude-code-vscode/
 |-- package.json                    # 扩展清单（已修改）
-|-- extension.js                    # 主扩展代码（21 个外科手术式补丁）
 |-- src/
 |   '-- remote-tools.js            # 6 个 MCP 代理工具（新文件，约 587 行）
 |-- scripts/
@@ -479,26 +458,20 @@ claude-code-vscode/
 |       |-- index.js                # patch 注册表 + 执行顺序
 |       '-- patch-*.js              # 13 个 patch 定义文件（共 21 个 patch）
 |-- tests/
-|   |-- test-patches.js             # 134 个自动化测试，覆盖所有 patch
-|   '-- test-vscode-interactive.md  # 手动 VS Code 集成测试计划
-|-- webview/
-|   |-- index.js                    # Webview React UI（未修改）
-|   '-- index.css                   # Webview 样式（未修改）
-|-- resources/
-|   |-- native-binaries/
-|   |   |-- darwin-arm64/claude     # macOS ARM64 CLI（175MB）
-|   |   '-- linux-x64/claude        # Linux x86-64 CLI（213MB）
-|   |-- native-binary/claude        # 回退 CLI（macOS ARM64）
-|   '-- claude-logo.png
-|-- CLAUDE.md                       # 详细开发文档
+|   '-- test-patches.js             # 134 个自动化测试，覆盖所有 patch
+|-- docs/
+|   '-- TECHNICAL_BLOG.md           # 技术深度解析文章
 '-- README.md                       # 本文件
+
+# 由 `npm run update` 生成（不在 repo 中）：
+# extension.js, webview/*, resources/*, claude-code-settings.schema.json
 ```
 
 ---
 
 ## 11. 更新日志
 
-### v0.3.0（2026-03）
+### v2.1.71（2026-03）
 - **基础版本升级**：从 Claude Code v2.1.42 升级到 v2.1.71
 - **自动更新流水线**：`node scripts/update.js` 自动下载官方 VSIX、美化代码、应用所有 13 个 patch 文件（21 个子 patch）、构建可安装 VSIX
 - **134 个自动化测试**：`tests/test-patches.js` 覆盖 patcher 逻辑、detectVars 验证、语法检查、跨 patch 一致性
