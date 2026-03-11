@@ -560,6 +560,15 @@ function registerTools(mcpServer, s, logger, onFileUpdated, reviewEdit) {
             try {
                 const remoteCwd = toRemotePath(cwd || getRemoteCwd());
                 const timeoutMs = timeout || 120000;
+
+                // Replace local cwd paths embedded in the command with remote paths.
+                // The CLI thinks its cwd is the local proxy dir (e.g. ~/.claude/remote/...)
+                // and may construct commands with absolute local paths (e.g. find /Users/.../...).
+                const localPrefix = getLocalCwd();
+                if (localPrefix && command.includes(localPrefix)) {
+                    command = command.split(localPrefix).join(getRemoteCwd());
+                }
+
                 const bashCmd = `bash -c ${shellEscape(command)}`;
 
                 const { stdout, stderr, exitCode } = await execRemoteCommand(

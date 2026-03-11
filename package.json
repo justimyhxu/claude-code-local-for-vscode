@@ -415,7 +415,7 @@
 					{
 						"id": "open-claude",
 						"title": "Open Claude Code",
-						"description": "Click the blue Claude icon in the top right corner, or press Ctrl+Escape (Cmd+Escape on Mac) to start a conversation.",
+						"description": "Click the orange Claude icon in the top right corner, or press Ctrl+Escape (Cmd+Escape on Mac) to start a conversation.",
 						"media": {
 							"markdown": "resources/walkthrough/step2.md"
 						},
@@ -518,7 +518,10 @@
 			"description": "untusted workspaces are not supported"
 		}
 	},
-	"scripts": {},
+	"scripts": {
+		"update": "node scripts/update.js",
+		"test": "node tests/test-patches.js"
+	},
 	"dependencies": {},
 	"extensionKind": [
 		"ui",
@@ -526,5 +529,9 @@
 	],
 	"enabledApiProposals": [
 		"resolvers"
-	]
+	],
+	"devDependencies": {
+		"adm-zip": "^0.5.16",
+		"js-beautify": "^1.15.4"
+	}
 }

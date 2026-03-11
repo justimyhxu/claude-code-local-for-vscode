@@ -74,6 +74,34 @@ function buildVsix(opts) {
         copyRecursive(srcResources, path.join(extDir, 'resources'));
     }
 
+    // Override webview with repo's patched versions (emerald theme, etc.)
+    const repoWebview = path.join(repoDir, 'webview');
+    if (fs.existsSync(repoWebview)) {
+        const destWebview = path.join(extDir, 'webview');
+        for (const file of fs.readdirSync(repoWebview)) {
+            const src = path.join(repoWebview, file);
+            const dest = path.join(destWebview, file);
+            if (fs.statSync(src).isFile()) {
+                fs.copyFileSync(src, dest);
+            }
+        }
+        console.log('  Webview overrides applied from repo');
+    }
+
+    // Override with custom branding from repo assets/
+    const assetsDir = path.join(repoDir, 'assets');
+    if (fs.existsSync(assetsDir)) {
+        const destResources = path.join(extDir, 'resources');
+        for (const file of fs.readdirSync(assetsDir)) {
+            const src = path.join(assetsDir, file);
+            const dest = path.join(destResources, file);
+            if (fs.statSync(src).isFile()) {
+                fs.copyFileSync(src, dest);
+            }
+        }
+        console.log('  Custom branding applied from assets/');
+    }
+
     // Copy settings schema
     const schemaFile = path.join(darwinDir, 'extension', 'claude-code-settings.schema.json');
     if (fs.existsSync(schemaFile)) {

@@ -7,6 +7,7 @@ const fs = require('fs');
 
 const MARKETPLACE_API = 'https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery';
 const EXTENSION_ID = 'anthropic.claude-code';
+const DEFAULT_VERSION = '2.1.71';
 
 function httpsGet(url, { maxRedirects = 5, onProgress } = {}) {
     return new Promise((resolve, reject) => {
@@ -149,7 +150,8 @@ async function extractVsix(vsixPath, destDir) {
 
 async function download(version, targetDir) {
     if (!version) {
-        version = await fetchLatestVersion();
+        version = DEFAULT_VERSION;
+        console.log(`Using pinned version: ${version}`);
     }
 
     targetDir = targetDir || path.join(__dirname, '..', '..', '.update-cache');
@@ -191,4 +193,4 @@ async function download(version, targetDir) {
     };
 }
 
-module.exports = { download, fetchLatestVersion };
+module.exports = { download, fetchLatestVersion, DEFAULT_VERSION };

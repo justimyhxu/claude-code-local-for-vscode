@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 
+# Git LFS config (binaries no longer in repo)
+.gitattributes
+
 # Planning files (session-specific)
 task_plan.md
 findings.md
@@ -17,12 +20,34 @@ test/
 # Update script cache
 .update-cache/
 
-# Native binaries (extracted at build time, not stored in git)
-resources/native-binaries/
-resources/native-binary/
-
 # Node modules
 node_modules/
 
 # Editor
 .vscode/
+
+# === Generated files (produced by `npm run update`) ===
+extension.js
+webview/index.js
+webview/index.css
+resources/native-binaries/
+resources/native-binary/
+resources/walkthrough/
+resources/welcome-art-dark.svg
+resources/welcome-art-light.svg
+resources/claude-logo*.svg
+resources/claude-logo*.png
+resources/clawd.svg
+resources/AcceptMode.jpg
+resources/ClawdWithGradCap.png
+resources/HighlightText.jpg
+resources/PlanMode.jpg
+claude-code-settings.schema.json
+package-lock.json
+
+# === Internal dev files (keep locally, not for public) ===
+CLAUDE.md
+TEST_CHECKLIST.md
+tests/test-vscode-interactive.md
+test-extensionkind-logic.js
+test-extensionkind-switch.js

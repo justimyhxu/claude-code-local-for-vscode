@@ -17,6 +17,16 @@ function patchPackageJson(pkgPath) {
     // Enable resolvers proposed API for FileSystemProvider on UI side
     pkg.enabledApiProposals = ['resolvers'];
 
+    // Build scripts and dev dependencies
+    pkg.scripts = {
+        update: 'node scripts/update.js',
+        test: 'node tests/test-patches.js'
+    };
+    pkg.devDependencies = {
+        'adm-zip': '^0.5.16',
+        'js-beautify': '^1.15.4'
+    };
+
     // Add forceLocal settings
     const props = pkg.contributes.configuration.properties;
 
