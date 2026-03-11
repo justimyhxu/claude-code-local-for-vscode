@@ -117,6 +117,18 @@ function truncateOutput(text, maxChars = 30000) {
 }
 
 // ---------------------------------------------------------------------------
+// Debug logging
+// ---------------------------------------------------------------------------
+
+let _debugChannel = null;
+function dbg(msg) {
+    if (!_debugChannel) {
+        _debugChannel = vscode.window.createOutputChannel("Claude Remote Exec");
+    }
+    _debugChannel.appendLine(`[${new Date().toISOString()}] ${msg}`);
+}
+
+// ---------------------------------------------------------------------------
 // Remote command execution via VS Code hidden terminal
 // ---------------------------------------------------------------------------
 
@@ -126,8 +138,10 @@ let _execCounter = 0;
 
 function getRemoteTerminal() {
     if (_remoteTerminal && !_remoteTerminal._isDisposed) {
+        dbg("getRemoteTerminal: reusing existing terminal");
         return _remoteTerminal;
     }
+    dbg(`getRemoteTerminal: creating new hidden terminal (old disposed: ${_remoteTerminal ? 'yes' : 'first call'})`);
     _remoteTerminal = vscode.window.createTerminal({
         name: "Claude Code Remote Exec",
         hideFromUser: true,
@@ -142,46 +156,97 @@ async function remoteExec(command, cwd, timeoutMs = 120000) {
     const tmpBase = `/tmp/.claude_exec_${id}`;
     const terminal = getRemoteTerminal();
 
+    dbg(`[${id}] remoteExec START — cwd=${cwd}, timeout=${timeoutMs}ms, cmd=${command.slice(0, 200)}${command.length > 200 ? '...' : ''}`);
+
     if (!_terminalReady) {
-        await new Promise(r => setTimeout(r, 500));
+        dbg(`[${id}] terminal not ready — sending readiness probe`);
+        const probeFile = `/tmp/.claude_ready_${id}`;
+        const probeToken = `READY_${id}`;
+        terminal.sendText(`echo ${probeToken} > ${probeFile}`, true);
+
+        const probeUri = getRemoteUri(probeFile);
+        const probeStart = Date.now();
+        const probeTimeout = 5000;
+        let probeOk = false;
+
+        while (Date.now() - probeStart < probeTimeout) {
+            await new Promise(r => setTimeout(r, 200));
+            try {
+                const data = await vscode.workspace.fs.readFile(probeUri);
+                const content = Buffer.from(data).toString("utf8").trim();
+                if (content === probeToken) {
+                    probeOk = true;
+                    dbg(`[${id}] readiness probe OK after ${Date.now() - probeStart}ms`);
+                    break;
+                }
+                dbg(`[${id}] probe file exists but content mismatch: "${content}"`);
+            } catch (probeErr) {
+                // probe file not yet created
+            }
+        }
+
+        if (!probeOk) {
+            dbg(`[${id}] readiness probe FAILED after ${probeTimeout}ms — proceeding anyway`);
+        }
+
+        // Clean up probe file
+        terminal.sendText(`rm -f ${probeFile}`, true);
         _terminalReady = true;
     }
 
     const cdPart = cwd ? `cd ${shellEscape(cwd)} && ` : "";
     const fullCmd = `(${cdPart}${command}) > ${tmpBase}.out 2> ${tmpBase}.err; echo $? > ${tmpBase}.exit`;
+    dbg(`[${id}] sending command to terminal: ${fullCmd.slice(0, 300)}${fullCmd.length > 300 ? '...' : ''}`);
     terminal.sendText(fullCmd, true);
 
     const exitFileUri = getRemoteUri(`${tmpBase}.exit`);
     const startTime = Date.now();
     const pollInterval = 300;
+    let lastLogTime = 0;
 
     while (Date.now() - startTime < timeoutMs) {
         await new Promise(r => setTimeout(r, pollInterval));
         try {
             const exitData = await vscode.workspace.fs.readFile(exitFileUri);
             const exitStr = Buffer.from(exitData).toString("utf8").trim();
-            if (exitStr === "") continue;
+            if (exitStr === "") {
+                dbg(`[${id}] exit file exists but empty at ${Date.now() - startTime}ms`);
+                continue;
+            }
             const exitCode = parseInt(exitStr, 10);
+            dbg(`[${id}] exit file found — exitCode=${exitCode}, elapsed=${Date.now() - startTime}ms`);
 
             let stdout = "";
             let stderr = "";
             try {
                 const outData = await vscode.workspace.fs.readFile(getRemoteUri(`${tmpBase}.out`));
                 stdout = Buffer.from(outData).toString("utf8");
-            } catch (_) {}
+                dbg(`[${id}] stdout: ${stdout.length} bytes`);
+            } catch (outErr) {
+                dbg(`[${id}] stdout read error: ${outErr.message}`);
+            }
             try {
                 const errData = await vscode.workspace.fs.readFile(getRemoteUri(`${tmpBase}.err`));
                 stderr = Buffer.from(errData).toString("utf8");
-            } catch (_) {}
+                dbg(`[${id}] stderr: ${stderr.length} bytes${stderr.length > 0 ? ' — ' + stderr.slice(0, 200) : ''}`);
+            } catch (errErr) {
+                dbg(`[${id}] stderr read error: ${errErr.message}`);
+            }
 
             terminal.sendText(`rm -f ${tmpBase}.out ${tmpBase}.err ${tmpBase}.exit`, true);
 
+            dbg(`[${id}] remoteExec DONE — exitCode=${isNaN(exitCode) ? 1 : exitCode}, total=${Date.now() - startTime}ms`);
             return { stdout, stderr, exitCode: isNaN(exitCode) ? 1 : exitCode };
-        } catch (_) {
-            // Exit file doesn't exist yet
+        } catch (pollErr) {
+            const now = Date.now();
+            if (now - lastLogTime > 3000) {
+                dbg(`[${id}] polling at ${now - startTime}ms — exit file not found: ${pollErr.message}`);
+                lastLogTime = now;
+            }
         }
     }
 
+    dbg(`[${id}] TIMEOUT after ${timeoutMs}ms — killing`);
     terminal.sendText(`kill %1 2>/dev/null; rm -f ${tmpBase}.out ${tmpBase}.err ${tmpBase}.exit`, true);
     throw new Error(`Command timed out after ${timeoutMs}ms`);
 }

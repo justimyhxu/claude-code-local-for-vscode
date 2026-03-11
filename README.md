@@ -492,6 +492,8 @@ claude-code-vscode/
 - **Bilingual README**: Split into `README.md` (English) and `README.zh-CN.md` (Chinese) with language toggle links
 - **FAQ section**: Added common questions and troubleshooting guide
 - **Patch count**: 20 -> 21 sub-patches across 13 patch definition files
+- **remoteExec debug logging**: Added "Claude Remote Exec" Output channel with detailed execution logs, probe-based terminal readiness check, and polling diagnostics
+- **Patch 16 enhanced**: `openFile()` now falls back to `findFiles` for relative paths (e.g. `checkpoint.py`) in forceLocal mode when direct remote URI fails
 
 ---
 

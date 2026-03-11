@@ -481,6 +481,8 @@ claude-code-vscode/
 - **双语 README**：拆分为 `README.md`（英文）和 `README.zh-CN.md`（中文），顶部提供语言切换链接
 - **常见问题**：新增 FAQ 章节，涵盖常见问题与故障排除
 - **Patch 数量**：20 -> 21 个子 patch，分布在 13 个 patch 定义文件中
+- **remoteExec 调试日志**：新增 "Claude Remote Exec" Output channel，包含详细执行日志、基于探针的终端就绪检查和轮询诊断信息
+- **Patch 16 增强**：forceLocal 模式下 `openFile()` 对相对路径（如 `checkpoint.py`）新增 `findFiles` 回退，当直接远程 URI 失败时自动搜索工作区
 
 ---
 
