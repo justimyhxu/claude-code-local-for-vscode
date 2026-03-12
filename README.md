@@ -166,6 +166,7 @@ npm run update -- --version 2.1.71 --install
 Other useful flags:
 
 ```bash
+npm run update -- --source openvsx   # Download from Open VSX (faster in China)
 npm run update -- --dry-run          # Verify all patch anchors match, don't modify
 npm run update -- --skip-download    # Use previously downloaded cache
 npm run update -- --output ~/my.vsix # Custom output path
@@ -416,6 +417,14 @@ node scripts/update.js --version 2.1.71 --install
 ```
 
 If patches fail on a newer version, use `--dry-run` first to check which anchors need updating.
+
+### Download is too slow from VS Code Marketplace
+
+Use `--source openvsx` to download from [Open VSX Registry](https://open-vsx.org/) instead, which uses the Eclipse CDN and is often faster (especially in China):
+
+```bash
+npm run update -- --source openvsx --install
+```
 
 ### The extension shows "extensionKind mismatch" and keeps asking to reload
 

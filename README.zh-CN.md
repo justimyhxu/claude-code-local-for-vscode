@@ -166,6 +166,7 @@ npm run update -- --version 2.1.71 --install
 其他常用参数：
 
 ```bash
+npm run update -- --source openvsx   # 从 Open VSX 下载（国内更快）
 npm run update -- --dry-run          # 只验证 patch anchor 是否匹配，不修改文件
 npm run update -- --skip-download    # 跳过下载，使用上次缓存
 npm run update -- --output ~/my.vsix # 自定义输出路径
@@ -405,6 +406,14 @@ node scripts/update.js --version 2.1.71 --install
 ```
 
 如果补丁在新版本上失败，可先用 `--dry-run` 检查哪些锚点需要更新。
+
+### 从 VS Code Marketplace 下载太慢怎么办？
+
+使用 `--source openvsx` 从 [Open VSX Registry](https://open-vsx.org/) 下载，走 Eclipse CDN，国内速度更快：
+
+```bash
+npm run update -- --source openvsx --install
+```
 
 ### 扩展一直提示 "extensionKind mismatch" 要求重新加载
 
