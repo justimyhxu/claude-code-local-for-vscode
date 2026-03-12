@@ -9,6 +9,19 @@ const MARKETPLACE_API = 'https://marketplace.visualstudio.com/_apis/public/galle
 const EXTENSION_ID = 'anthropic.claude-code';
 const DEFAULT_VERSION = '2.1.71';
 
+const SOURCES = {
+    marketplace: {
+        name: 'VS Code Marketplace',
+        getUrl: (version, platform) =>
+            `https://marketplace.visualstudio.com/_apis/public/gallery/publishers/Anthropic/vsextensions/claude-code/${version}/vspackage?targetPlatform=${platform}`
+    },
+    openvsx: {
+        name: 'Open VSX Registry',
+        getUrl: (version, platform) =>
+            `https://open-vsx.org/api/Anthropic/claude-code/${platform}/${version}/file/Anthropic.claude-code-${version}@${platform}.vsix`
+    }
+};
+
 function httpsGet(url, { maxRedirects = 5, onProgress } = {}) {
     return new Promise((resolve, reject) => {
         if (maxRedirects <= 0) return reject(new Error('Too many redirects'));
@@ -101,9 +114,9 @@ async function fetchLatestVersion() {
     return version;
 }
 
-function getVsixUrl(version, platform) {
-    // VS Code Marketplace VSIX download URL pattern
-    return `https://marketplace.visualstudio.com/_apis/public/gallery/publishers/Anthropic/vsextensions/claude-code/${version}/vspackage?targetPlatform=${platform}`;
+function getVsixUrl(version, platform, source) {
+    const src = SOURCES[source] || SOURCES.marketplace;
+    return src.getUrl(version, platform);
 }
 
 async function downloadFile(url, destPath) {
@@ -148,11 +161,15 @@ async function extractVsix(vsixPath, destDir) {
     return destDir;
 }
 
-async function download(version, targetDir) {
+async function download(version, targetDir, source) {
     if (!version) {
         version = DEFAULT_VERSION;
         console.log(`Using pinned version: ${version}`);
     }
+
+    source = source || 'marketplace';
+    const srcInfo = SOURCES[source] || SOURCES.marketplace;
+    console.log(`Download source: ${srcInfo.name}`);
 
     targetDir = targetDir || path.join(__dirname, '..', '..', '.update-cache');
     const versionDir = path.join(targetDir, version);
@@ -172,7 +189,7 @@ async function download(version, targetDir) {
         if (fs.existsSync(extractDir) && fs.existsSync(path.join(extractDir, 'extension', 'extension.js'))) {
             console.log(`Using cached ${platform.name} for v${version}`);
         } else {
-            const url = getVsixUrl(version, platform.target);
+            const url = getVsixUrl(version, platform.target, source);
             await downloadFile(url, vsixFile);
             await extractVsix(vsixFile, extractDir);
             // Clean up vsix file to save space
@@ -193,4 +210,4 @@ async function download(version, targetDir) {
     };
 }
 
-module.exports = { download, fetchLatestVersion, DEFAULT_VERSION };
+module.exports = { download, fetchLatestVersion, DEFAULT_VERSION, SOURCES };

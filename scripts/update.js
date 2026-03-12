@@ -10,6 +10,7 @@ function parseArgs() {
     const args = process.argv.slice(2);
     const opts = {
         version: null,
+        source: null,
         dryRun: false,
         install: false,
         skipDownload: false,
@@ -36,6 +37,14 @@ function parseArgs() {
             case '--skip-download':
                 opts.skipDownload = true;
                 break;
+            case '--source':
+            case '-s':
+                if (i + 1 >= args.length || args[i + 1].startsWith('--')) {
+                    console.error('Error: --source requires a value (marketplace or openvsx)');
+                    process.exit(1);
+                }
+                opts.source = args[++i];
+                break;
             case '--output':
             case '-o':
                 if (i + 1 >= args.length || args[i + 1].startsWith('--')) {
@@ -54,12 +63,14 @@ function parseArgs() {
 }
 
 function printUsage() {
-    const { DEFAULT_VERSION } = require('./lib/download');
+    const { DEFAULT_VERSION, SOURCES } = require('./lib/download');
+    const sourceNames = Object.keys(SOURCES).join(', ');
     console.log(`
 Usage: node scripts/update.js [options]
 
 Options:
   --version <ver>    Specify version (e.g., 2.1.71). Default: ${DEFAULT_VERSION} (pinned)
+  --source <src>     Download source: ${sourceNames}. Default: marketplace
   --dry-run          Only verify anchors, don't modify files
   --install          Install VSIX after building
   --skip-download    Skip download, use cached files
@@ -69,6 +80,7 @@ Options:
 Examples:
   node scripts/update.js                          # Pinned version (v${DEFAULT_VERSION})
   node scripts/update.js --version 2.1.71         # Specific version
+  node scripts/update.js --source openvsx         # Download from Open VSX (faster in China)
   node scripts/update.js --dry-run                # Verify anchors only
   node scripts/update.js --install                # Build + install
   node scripts/update.js --skip-download          # Use cached download
@@ -162,7 +174,7 @@ async function main() {
     } else {
         console.log('\n--- Step 1: Download ---');
         const { download } = require('./lib/download');
-        sourceInfo = await download(opts.version, cacheDir);
+        sourceInfo = await download(opts.version, cacheDir, opts.source);
     }
 
     console.log(`Version: ${sourceInfo.version}`);
